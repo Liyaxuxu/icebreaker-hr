@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>first-hello 打招呼语生成器</title>
+  <style>
+    :root {
+      --bg: #F3F5F9;
+      --surface: #FFFFFF;
+      --ink: #1B2430;
+      --muted: #6B7684;
+      --line: #E3E8F0;
+      --accent: #2B5CE6;
+      --accent-press: #1E45B8;
+      --bubble: #EAF0FF;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 16px 80px;
+      font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    header { margin-bottom: 28px; }
+    h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: 0.5px; }
+    h1 .dot { color: var(--accent); }
+    .tagline { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    label { font-size: 14px; font-weight: 600; }
+    .hint { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+
+    textarea {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--ink);
+      background: #FAFBFD;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      resize: vertical;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(43, 92, 230, .12);
+    }
+
+    button {
+      font-size: 14px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease, background .15s;
+    }
+    button:hover { box-shadow: 0 2px 8px rgba(27, 36, 48, .08); }
+    button:active { transform: translateY(1px) scale(.98); box-shadow: none; }
+    button:focus-visible { outline: 3px solid rgba(43, 92, 230, .35); outline-offset: 2px; }
+    button:disabled { cursor: not-allowed; opacity: .45; transform: none; box-shadow: none; }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      padding: 12px 34px;
+      box-shadow: 0 3px 10px rgba(43, 92, 230, .28);
+    }
+    .btn-primary:hover { background: #3568F0; box-shadow: 0 5px 14px rgba(43, 92, 230, .34); }
+    .btn-primary:active { background: var(--accent-press); }
+
+    .btn-copy {
+      font-size: 13px;
+      padding: 7px 16px;
+    }
+
+    .pdf-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+    .pdf-row input[type=file] { font-size: 13px; color: var(--muted); }
+    .pdf-row input[type=file]::file-selector-button {
+      font-size: 13px;
+      padding: 8px 16px;
+      margin-right: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .15s ease;
+    }
+    .pdf-row input[type=file]::file-selector-button:hover { box-shadow: 0 2px 8px rgba(27, 36, 48, .08); }
+    .pdf-row input[type=file]::file-selector-button:active { transform: translateY(1px) scale(.98); box-shadow: none; }
+    #pdfStatus { color: var(--muted); font-size: 13px; }
+
+    .actions { display: flex; gap: 12px; margin: 6px 0 22px; }
+
+    /* ---- 结果:两个独立气泡卡片 ---- */
+    .result-block { margin-bottom: 20px; }
+    .result-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .result-title { font-size: 13px; color: var(--muted); }
+
+    .bubble {
+      position: relative;
+      white-space: pre-wrap;
+      background: var(--bubble);
+      border: 1px solid #D8E2FA;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border-top-left-radius: 4px;
+      line-height: 1.8;
+      font-size: 14.5px;
+      min-height: 56px;
+      animation: rise .3s ease;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .typing { display: inline-flex; gap: 5px; align-items: center; height: 20px; }
+    .typing i {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    .typing i:nth-child(2) { animation-delay: .2s; }
+    .typing i:nth-child(3) { animation-delay: .4s; }
+    @keyframes blink {
+      0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+      30%           { opacity: 1;   transform: translateY(-3px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>first-hello<span class="dot">.</span></h1>
+    <p class="tagline">贴入岗位JD,基于你的真实经历,生成第一句打招呼语 —— 只挑不编。</p>
+  </header>
+
+  <div class="card">
+    <label>我的素材 <span class="hint">简历要点,或直接从PDF导入</span></label>
+    <div class="pdf-row">
+      <input type="file" id="pdfFile" accept=".pdf">
+      <button onclick="uploadPdf()">从简历PDF导入</button>
+      <span id="pdfStatus"></span>
+    </div>
+    <textarea id="me" rows="8" placeholder="粘贴你的求职素材……"></textarea>
+  </div>
+
+  <div class="card">
+    <label>岗位JD <span class="hint">职位描述 + 任职要求</span></label>
+    <textarea id="jd" rows="8" placeholder="粘贴岗位描述……"></textarea>
+  </div>
+
+  <div class="actions">
+    <button id="genBtn" class="btn-primary" onclick="generate()">生成开场白</button>
+  </div>
+
+  <!-- 打招呼语卡片 -->
+  <div class="result-block">
+    <div class="result-head">
+      <span class="result-title">打招呼语 · 用于BOSS首次沟通</span>
+      <button class="btn-copy" id="copyHello" onclick="copyBox('helloBox', this)">复制</button>
+    </div>
+    <div class="bubble" id="helloBox">生成后出现在这里</div>
+  </div>
+
+  <!-- 自我介绍卡片 -->
+  <div class="result-block">
+    <div class="result-head">
+      <span class="result-title">自我介绍 · 用于官网网申/沟通展开</span>
+      <button class="btn-copy" id="copyIntro" onclick="copyBox('introBox', this)">复制</button>
+    </div>
+    <div class="bubble" id="introBox">生成后出现在这里</div>
+  </div>
+
+  <script>
+    const TYPING = '<span class="typing"><i></i><i></i><i></i></span>';
+
+    // ---- 生成:边流边分,两个框接力打字 ----
+    async function generate() {
+      const me = document.getElementById("me").value;
+      const jd = document.getElementById("jd").value;
+      const helloBox = document.getElementById("helloBox");
+      const introBox = document.getElementById("introBox");
+      const btn = document.getElementById("genBtn");
+
+      btn.disabled = true;
+      helloBox.innerHTML = TYPING;
+      introBox.innerHTML = TYPING;
+
+      let full = "";        // 完整累积文本
+      let started = false;  // 首字到了没
+      try {
+        const resp = await fetch("/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ me: me, jd: jd })
+        });
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          started = true;
+          full += decoder.decode(value, { stream: true });
+          render(full, helloBox, introBox);   // 每收到一块,实时重新分配两个框
+        }
+        if (!started) {
+          helloBox.innerText = "没有收到内容,请重试。";
+          introBox.innerText = "";
+        }
+      } catch (e) {
+        helloBox.innerText = "请求出错了:" + e.message;
+        introBox.innerText = "";
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // 实时分配:自我介绍标题出现前,全给第一框;出现后,按标题劈开各归各位
+    function render(text, helloBox, introBox) {
+      const idx = text.indexOf("【自我介绍】");
+      if (idx === -1) {
+        // 还没写到自我介绍:全文(剥掉打招呼语标题)在第一框蹦字
+        helloBox.innerText = text.replace("【打招呼语】", "").trim();
+      } else {
+        helloBox.innerText = text.slice(0, idx).replace("【打招呼语】", "").trim();
+        introBox.innerText = text.slice(idx + "【自我介绍】".length).trim();
+      }
+    }
+
+    // ---- 各自复制(只复制正文,带按钮反馈)----
+    function copyBox(boxId, btnEl) {
+      const text = document.getElementById(boxId).innerText;
+      navigator.clipboard.writeText(text);
+      const old = btnEl.innerText;
+      btnEl.innerText = "已复制 ✓";
+      setTimeout(() => { btnEl.innerText = old; }, 1200);
+    }
+
+    // ---- PDF 导入(方案B:填入素材框供审阅)----
+    async function uploadPdf() {
+      const file = document.getElementById("pdfFile").files[0];
+      if (!file) { alert("先选择一个PDF文件"); return; }
+      document.getElementById("pdfStatus").innerText = "解析中……";
+      const form = new FormData();
+      form.append("file", file);
+      const resp = await fetch("/parse_pdf", { method: "POST", body: form });
+      const data = await resp.json();
+      if (data.text) {
+        document.getElementById("me").value = data.text;
+        document.getElementById("pdfStatus").innerText = "已导入,请检查并可补充内容";
+      } else {
+        document.getElementById("pdfStatus").innerText = data.error;
+      }
+    }
+  </script>
+</body>
+</html>
