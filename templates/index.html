@@ -155,6 +155,39 @@
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
     }
+
+    /* ---- 历史记录 ---- */
+    .history-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .hist-empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+    .hist-item { border-top: 1px solid var(--line); }
+    .hist-item:first-child { border-top: none; }
+    .hist-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 2px;
+      cursor: pointer;
+    }
+    .hist-item-head:hover .hist-jd { color: var(--accent); }
+    .hist-jd {
+      font-size: 14px; font-weight: 600;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .hist-time { color: var(--muted); font-size: 12px; flex-shrink: 0; }
+    .hist-body { padding: 2px 2px 16px; animation: rise .25s ease; }
+    .hist-block { margin-bottom: 12px; }
+    .hist-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .hist-text { white-space: pre-wrap; font-size: 14px; line-height: 1.75; }
+    .hist-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .hist-actions button { font-size: 12px; padding: 6px 14px; }
+    .btn-danger { color: #C0392B; border-color: #E7B7B0; }
+    .btn-danger:hover { background: #FDECEA; box-shadow: none; }
   </style>
 </head>
 <body>
@@ -200,6 +233,15 @@
     <div class="bubble" id="introBox">生成后出现在这里</div>
   </div>
 
+  <!-- 历史记录 -->
+  <div class="card">
+    <div class="history-head">
+      <label>历史记录 <span class="hint">自动保存在本浏览器,仅你可见</span></label>
+      <button class="btn-copy btn-danger" onclick="clearHistory()">清空</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
   <script>
     const TYPING = '<span class="typing"><i></i><i></i><i></i></span>';
 
@@ -235,6 +277,9 @@
         if (!started) {
           helloBox.innerText = "没有收到内容,请重试。";
           introBox.innerText = "";
+        } else {
+          const [hello, intro] = splitResult(full);
+          saveRecord({ jd: jd, hello: hello, intro: intro });
         }
       } catch (e) {
         helloBox.innerText = "请求出错了:" + e.message;
@@ -246,19 +291,27 @@
 
     // 实时分配:自我介绍标题出现前,全给第一框;出现后,按标题劈开各归各位
     function render(text, helloBox, introBox) {
+      const [hello, intro] = splitResult(text);
+      helloBox.innerText = hello;
+      if (intro) introBox.innerText = intro;   // 自我介绍标题还没出现时,第二框保留打字动画
+    }
+
+    // 把完整文本按标题劈成 [打招呼语, 自我介绍]
+    function splitResult(text) {
       const idx = text.indexOf("【自我介绍】");
-      if (idx === -1) {
-        // 还没写到自我介绍:全文(剥掉打招呼语标题)在第一框蹦字
-        helloBox.innerText = text.replace("【打招呼语】", "").trim();
-      } else {
-        helloBox.innerText = text.slice(0, idx).replace("【打招呼语】", "").trim();
-        introBox.innerText = text.slice(idx + "【自我介绍】".length).trim();
-      }
+      if (idx === -1) return [text.replace("【打招呼语】", "").trim(), ""];
+      return [
+        text.slice(0, idx).replace("【打招呼语】", "").trim(),
+        text.slice(idx + "【自我介绍】".length).trim()
+      ];
     }
 
     // ---- 各自复制(只复制正文,带按钮反馈)----
     function copyBox(boxId, btnEl) {
-      const text = document.getElementById(boxId).innerText;
+      copyText(document.getElementById(boxId).innerText, btnEl);
+    }
+
+    function copyText(text, btnEl) {
       navigator.clipboard.writeText(text);
       const old = btnEl.innerText;
       btnEl.innerText = "已复制 ✓";
@@ -281,6 +334,123 @@
         document.getElementById("pdfStatus").innerText = data.error;
       }
     }
+
+    // ================= 历史记录(纯本地,存在浏览器 localStorage)=================
+    const HISTORY_KEY = "firstHello.history";
+    const MAX_HISTORY = 50;
+
+    function loadHistory() {
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function persistHistory(list) {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(list));
+    }
+    function saveRecord({ jd, hello, intro }) {
+      if (!hello && !intro) return;               // 空结果不存
+      const list = loadHistory();
+      list.unshift({ id: Date.now(), ts: Date.now(), jd: jd, hello: hello, intro: intro });
+      if (list.length > MAX_HISTORY) list.length = MAX_HISTORY;   // 只留最近 50 条
+      persistHistory(list);
+      renderHistory();
+    }
+    function deleteRecord(id) {
+      persistHistory(loadHistory().filter(r => r.id !== id));
+      renderHistory();
+    }
+    function clearHistory() {
+      if (loadHistory().length === 0) return;
+      if (!confirm("清空全部历史记录?此操作不可撤销。")) return;
+      persistHistory([]);
+      renderHistory();
+    }
+    function refillJd(jd) {
+      document.getElementById("jd").value = jd;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function fmtTime(ts) {
+      const d = new Date(ts);
+      const p = n => String(n).padStart(2, "0");
+      return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    function jdTitle(jd) {
+      const first = (jd.split("\n").find(l => l.trim()) || "无标题").trim();
+      return first.length > 30 ? first.slice(0, 30) + "…" : first;
+    }
+
+    function renderHistory() {
+      const box = document.getElementById("historyList");
+      const list = loadHistory();
+      box.innerHTML = "";
+      if (list.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "hist-empty";
+        empty.innerText = "还没有历史记录,生成一次后会自动保存在这里。";
+        box.appendChild(empty);
+        return;
+      }
+      list.forEach(rec => box.appendChild(buildHistItem(rec)));
+    }
+
+    // 用 DOM API 构建、正文一律走 innerText,避免 JD/生成内容里的字符被当成 HTML
+    function buildHistItem(rec) {
+      const item = document.createElement("div");
+      item.className = "hist-item";
+
+      const head = document.createElement("div");
+      head.className = "hist-item-head";
+      const title = document.createElement("span");
+      title.className = "hist-jd";
+      title.innerText = jdTitle(rec.jd);
+      const time = document.createElement("span");
+      time.className = "hist-time";
+      time.innerText = fmtTime(rec.ts);
+      head.appendChild(title);
+      head.appendChild(time);
+
+      const body = document.createElement("div");
+      body.className = "hist-body";
+      body.hidden = true;                          // 默认折叠,点标题展开
+      if (rec.hello) body.appendChild(histBlock("打招呼语", rec.hello));
+      if (rec.intro) body.appendChild(histBlock("自我介绍", rec.intro));
+
+      const actions = document.createElement("div");
+      actions.className = "hist-actions";
+      if (rec.hello) actions.appendChild(mkBtn("复制打招呼语", "btn-copy", e => copyText(rec.hello, e.currentTarget)));
+      if (rec.intro) actions.appendChild(mkBtn("复制自我介绍", "btn-copy", e => copyText(rec.intro, e.currentTarget)));
+      actions.appendChild(mkBtn("填回JD", "btn-copy", () => refillJd(rec.jd)));
+      actions.appendChild(mkBtn("删除", "btn-copy btn-danger", () => deleteRecord(rec.id)));
+      body.appendChild(actions);
+
+      head.addEventListener("click", () => { body.hidden = !body.hidden; });
+      item.appendChild(head);
+      item.appendChild(body);
+      return item;
+    }
+
+    function histBlock(label, text) {
+      const block = document.createElement("div");
+      block.className = "hist-block";
+      const l = document.createElement("div");
+      l.className = "hist-label";
+      l.innerText = label;
+      const t = document.createElement("div");
+      t.className = "hist-text";
+      t.innerText = text;
+      block.appendChild(l);
+      block.appendChild(t);
+      return block;
+    }
+    function mkBtn(label, cls, handler) {
+      const b = document.createElement("button");
+      b.className = cls;
+      b.innerText = label;
+      b.addEventListener("click", handler);
+      return b;
+    }
+
+    renderHistory();   // 页面加载时先渲染一次
   </script>
 </body>
 </html>
