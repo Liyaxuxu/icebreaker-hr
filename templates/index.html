@@ -247,11 +247,19 @@
 
     // ---- 生成:边流边分,两个框接力打字 ----
     async function generate() {
-      const me = document.getElementById("me").value;
-      const jd = document.getElementById("jd").value;
+      const me = document.getElementById("me").value.trim();
+      const jd = document.getElementById("jd").value.trim();
       const helloBox = document.getElementById("helloBox");
       const introBox = document.getElementById("introBox");
       const btn = document.getElementById("genBtn");
+
+      // 发之前先判空,空请求根本不打到后端
+      if (!me || !jd) {
+        helloBox.innerText = !me && !jd ? "素材和 JD 都还没填。"
+                           : !me ? "素材还没填。" : "岗位 JD 还没填。";
+        introBox.innerText = "生成后出现在这里";
+        return;
+      }
 
       btn.disabled = true;
       helloBox.innerHTML = TYPING;
@@ -265,6 +273,14 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ me: me, jd: jd })
         });
+        // 非 200:后端返回的是 {error:...},读出来好好显示,而不是当正文渲染
+        if (!resp.ok) {
+          let msg = "生成失败(" + resp.status + ")";
+          try { const e = await resp.json(); if (e.error) msg = e.error; } catch (_) {}
+          helloBox.innerText = msg;
+          introBox.innerText = "";
+          return;
+        }
         const reader = resp.body.getReader();
         const decoder = new TextDecoder("utf-8");
         while (true) {
@@ -279,6 +295,7 @@
           introBox.innerText = "";
         } else {
           const [hello, intro] = splitResult(full);
+          if (!intro) introBox.innerText = "(本次没有生成自我介绍)";  // 没吐出【自我介绍】就别一直转圈
           saveRecord({ jd: jd, hello: hello, intro: intro });
         }
       } catch (e) {
