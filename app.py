@@ -54,18 +54,23 @@ def generate():
         return jsonify({"error": "me 和 jd 都不能为空"}), 400
 
     def stream():
-        response = client.chat.completions.create(
-            model=os.environ["LLM_MODEL"],
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"【候选人素材】\n{me}\n\n【目标岗位JD】\n{jd}"},
-            ],
-            stream=True,                       # 灵魂参数:让模型边生成边发
-        )
-        for chunk in response:
-            delta = chunk.choices[0].delta.content
-            if delta:
-                yield delta                    # 收到一块,立刻转发一块
+        try:
+            response = client.chat.completions.create(
+                model=os.environ["LLM_MODEL"],
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"【候选人素材】\n{me}\n\n【目标岗位JD】\n{jd}"},
+                ],
+                stream=True,                   # 灵魂参数:让模型边生成边发
+            )
+            for chunk in response:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta                # 收到一块,立刻转发一块
+        except Exception as e:
+            # 响应头已按 200 发出,错误无法再改状态码,只能作为正文补发一段。
+            # 以"⚠️ 生成中断"开头,前端据此识别为错误:显示出来、且不存入历史。
+            yield f"\n\n⚠️ 生成中断:{type(e).__name__}: {e}"
 
     return Response(stream_with_context(stream()), mimetype="text/plain")
 

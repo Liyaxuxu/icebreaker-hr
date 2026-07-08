@@ -244,6 +244,7 @@
 
   <script>
     const TYPING = '<span class="typing"><i></i><i></i><i></i></span>';
+    const ERROR_MARK = "⚠️ 生成中断";   // 与后端 stream() 出错时补发的前缀保持一致
 
     // ---- 生成:边流边分,两个框接力打字 ----
     async function generate() {
@@ -292,6 +293,10 @@
         }
         if (!started) {
           helloBox.innerText = "没有收到内容,请重试。";
+          introBox.innerText = "";
+        } else if (full.includes(ERROR_MARK)) {
+          // 后端中途报错:把已收到的内容+错误原因整段显示出来,不存历史、第二框不空转
+          helloBox.innerText = full.replace("【打招呼语】", "").replace("【自我介绍】", "").trim();
           introBox.innerText = "";
         } else {
           const [hello, intro] = splitResult(full);
